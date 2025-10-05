@@ -27,17 +27,18 @@ PASS
 ok  	zappem.net/pub/io/pious	0.204s
 ```
 
-An example assembling and then disassembling a .pio program:
+An example assembling and then disassembling a `.pio` program:
 
 ```
 $ go run examples/piocli.go --src pio/clock.pio
+read: .program clock
 read:   set     pindirs, 1
 read: wrap_target:
 read:   set     pins, 0 [1]
 read:   set     pins, 1 [1]
 ```
 
-That output matches the input.
+That output matches the `pio/clock.pio` input.
 
 ## TODO
 

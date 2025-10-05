@@ -600,8 +600,8 @@ func NewProgram(source string) (*Program, error) {
 		case ".program":
 			if len(tokens) != 2 {
 				return nil, fmt.Errorf("failed to parse line %d: %q", i, line)
-				program = tokens[1]
 			}
+			program = tokens[1]
 		default:
 			if len(tokens) != 1 || !strings.HasSuffix(tokens[0], ":") {
 				return nil, fmt.Errorf("failed to parse line %d: %q", i, line)
@@ -637,7 +637,9 @@ func (p *Program) Disassemble() []string {
 		sort.Strings(label)
 		targets[addr] = label[0]
 	}
-	var listing []string
+	listing := []string{
+		fmt.Sprint(".program ", p.Name),
+	}
 	for i, code := range p.Code {
 		if list, ok := labels[uint16(i)]; ok {
 			for _, sym := range list {
