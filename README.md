@@ -1,4 +1,4 @@
-# pious - a go package for editing RP PIO sequences
+# pious - a go package supporting RP PIO sequences
 
 ## Overview
 
@@ -40,10 +40,76 @@ read:   set     pins, 1 [1]
 
 That output matches the `pio/clock.pio` input.
 
+## Reference
+
+The PIO Instruction set has 10 instruction types. One of these (`nop`)
+is a conventional alias for a pointless `mov` instruction. Full
+details are provided in the [RP2350
+Datasheet](https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf),
+but we provide a quick summary here:
+
+- `jmp` is the control flow jump instruction, it sets the next
+  execution address. If it includes a condition then the condition
+  must evaluate to true for the jump to be performed, otherwise PIO
+  program execution continues at the next instruction.
+
+- `wait` causes execution of the PIO program to stall until some
+  condition becomes true. The first argument, 1 or 0, indicates what
+  polarity of value is being waited for. If omitted 1 is assumed. You
+  can wait for `gpio`, `pin`, `irq` or `jmppin` (pin offset from some
+  base index).
+
+- `in` shifts a counted number of bits into the `isr` register. (Bit
+  shift _direction_ is a configuration setting for the executing state
+  machine, and only refers to the end of `isr` that the bits are
+  removed from.). The source of the bits is provided with the
+  instruction and is one of: `pins`, `x`, `y`, `null` (zeros), `isr`,
+  `osr`.  If _automatic push_ is enabled, then `isr` is pushed into
+  `rxfifo` when it is sufficiently empty. Operations stall in such
+  cases when the `rxfifo` becomes full.
+
+- `out` shifts a counted number of bits out of the `osr`
+  register. (Bit shift _direction_ is a configuration setting for the
+  executing state machine, and only refers to the end of `osr` that
+  the bits are inserted into.) The destination for the shift is one
+  of: `pins`, `x`, `y`, `null` (discard), `pindirs`, `pc`, `isr`,
+  `exec`. The shift wholly sets the destination register with
+  unshifted bits being set to zero. In this way, we are setting the
+  register with a subset of the `osr` bits. If _automatic pull_ is
+  enabled, then `osr` is refilled from `rxfifo` when it is
+  sufficiently empty, or stalls until something has been inserted into
+  the `rxfifo`.
+
+- `push` can be used to more explicitly push (as opposed to _automatic
+  push_) whole 32-bit `isr` values into the `rxfifo`.
+
+- `pull` can be used to more explicitly pull (as opposed to _automatic
+  pull_) whole 32-bit `osr` values from the `rxfifo`.
+
+- `mov` is used to move between registers or a register: `pins`, `x`,
+  `y`, `isr`, `osr`, and an indexed element in the `rxfifo`. Some
+  values can also be used as sources: `null`, `status`, and an indexed
+  element of the `rxfifo`. Some values can also be used as
+  destinations: `pindirs`, `exec` (force execution of a datum as an
+  instruction), `pc` (indirect jump).
+
+- `irq` generate an interrupt with the indicated index.
+
+- `set` sets a register value from an immediate 5-bit value. Larger
+  values need to be provided through `out` or `mov` operations.
+
 ## TODO
 
+Things I'm thinking about exploring:
+
 - Figure out how to generate `tinygo` compatible output.
-- Support side-set feature.
+
+- Support side-set feature: immediate side-effect setting of a pin (or
+  up to 5 pins) when performing some other instruction. It is encoded
+  in a way that limits the amount instructions can delay, and that
+  limitation is a setting of the PIO state machine.
+
+- PIO simulator for debugging.
 
 ## Support
 
