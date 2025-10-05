@@ -10,8 +10,8 @@ work with PIO sequences.
 
 ## Status
 
-The package currently only supports disassembling known PIO
-instructions. The tests are all extracted from known assembly output.
+The package only supports assembling and disassembling known PIO
+instructions. The tests are extracted from known assembly output.
 
 To explore:
 
@@ -21,14 +21,28 @@ $ cd pious
 $ go test -v
 === RUN   TestDisassemble
 --- PASS: TestDisassemble (0.00s)
+=== RUN   TestAssemble
+--- PASS: TestAssemble (0.20s)
 PASS
-ok  	zappem.net/pub/io/pious	0.003s
+ok  	zappem.net/pub/io/pious	0.204s
 ```
+
+An example assembling and then disassembling a .pio program:
+
+```
+$ go run examples/piocli.go --src pio/clock.pio
+read:   set     pindirs, 1
+read: wrap_target:
+read:   set     pins, 0 [1]
+read:   set     pins, 1 [1]
+```
+
+That output matches the input.
 
 ## TODO
 
-Add more test vectors for the `pious.Disassemble()` function. It
-doesn't currently have 100% coverage of the instruction set.
+- Figure out how to generate `tinygo` compatible output.
+- Support side-set feature.
 
 ## Support
 

@@ -27,10 +27,32 @@ func TestDisassemble(t *testing.T) {
 		{c: 0x8098, d: "mov\tosr, rxfifo[0]"},
 	}
 	for i, v := range vs {
-		if d, err := Disassemble(v.c); err != nil {
+		if d, err := Disassemble(v.c, nil); err != nil {
 			t.Errorf("test %d failed: %v", i, err)
 		} else if d != v.d {
 			t.Errorf("test %d failed got=%q want=%q", i, d, v.d)
+		}
+	}
+}
+
+func TestAssemble(t *testing.T) {
+	for i := 0; i <= 0xffff; i++ {
+		d, err := Disassemble(uint16(i), nil)
+		if err != nil {
+			// Un-comment the following to explore new
+			// opcode support
+			//t.Errorf("[%d] bad (%q): %v", i, d, err)
+			continue
+		}
+		ts, err := Assemble(d, nil)
+		if want := uint16(i); err != nil || ts != want {
+			if ins := instructions[idxIRQ]; ts^want == 0b100000 && ts&(ins.mask|0b1000000) == (ins.bits|0b1000000) {
+				// special case for IRQ instructions:
+				// the wait bit is ignored if clear is
+				// set.
+				continue
+			}
+			t.Errorf("[%d] bad (%q) got=%04x want=%04x (%016b, %016b): %v", i, d, ts, i, ts, i, err)
 		}
 	}
 }
