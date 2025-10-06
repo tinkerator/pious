@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	src = flag.String("src", "", "path to .pio source file")
+	src   = flag.String("src", "", "path to .pio source file")
+	debug = flag.Bool("debug", false, "use to output debugging info")
 )
 
 func main() {
@@ -27,6 +28,9 @@ func main() {
 	p, err := pious.NewProgram(string(text))
 	if err != nil {
 		log.Fatalf("%s failed to assemble %q: %v", os.Args[0], *src, err)
+	}
+	if *debug {
+		log.Printf("compiled: %#v", p)
 	}
 	for _, line := range p.Disassemble() {
 		fmt.Printf("read: %s\n", line)

@@ -579,6 +579,8 @@ func NewProgram(source string) (*Program, error) {
 	var code []uint16
 	labels := make(map[string]uint16)
 	var program string
+	wrap := uint16(0xffff)
+	wrapTarget := uint16(0xffff)
 	for i, line := range lines {
 		instr, err := Assemble(line, labels)
 		if err == nil {
@@ -602,6 +604,16 @@ func NewProgram(source string) (*Program, error) {
 				return nil, fmt.Errorf("failed to parse line %d: %q", i, line)
 			}
 			program = tokens[1]
+		case ".wrap":
+			if len(tokens) != 1 || wrap != uint16(0xffff) {
+				return nil, fmt.Errorf("bad wrap line %d: %q", i, line)
+			}
+			wrap = uint16(len(code))
+		case ".wrap_target":
+			if len(tokens) != 1 || wrapTarget != uint16(0xffff) {
+				return nil, fmt.Errorf("bad wrap line %d: %q", i, line)
+			}
+			wrapTarget = uint16(len(code))
 		default:
 			if len(tokens) != 1 || !strings.HasSuffix(tokens[0], ":") {
 				return nil, fmt.Errorf("failed to parse line %d: %q", i, line)
@@ -620,10 +632,18 @@ func NewProgram(source string) (*Program, error) {
 	if program == "" {
 		program = "unknown"
 	}
+	if wrap == uint16(0xffff) {
+		wrap = uint16(len(code))
+	}
+	if wrapTarget == uint16(0xffff) {
+		wrapTarget = 0
+	}
 	return &Program{
-		Name:   program,
-		Labels: labels,
-		Code:   code,
+		Name:       program,
+		Labels:     labels,
+		Wrap:       wrap,
+		WrapTarget: wrapTarget,
+		Code:       code,
 	}, nil
 }
 
@@ -646,11 +666,20 @@ func (p *Program) Disassemble() []string {
 				listing = append(listing, fmt.Sprintf("%s:", sym))
 			}
 		}
+		if uint16(i) == p.WrapTarget {
+			listing = append(listing, ".wrap_target")
+		}
+		if uint16(i) == p.Wrap {
+			listing = append(listing, ".wrap")
+		}
 		text, err := Disassemble(code, targets)
 		if err != nil {
 			panic(fmt.Sprintf("error at code offset %d: %v", i, err))
 		}
 		listing = append(listing, fmt.Sprintf("\t%s", text))
+	}
+	if p.Wrap == uint16(len(p.Code)) {
+		listing = append(listing, ".wrap")
 	}
 	return listing
 }

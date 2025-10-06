@@ -133,7 +133,8 @@ var (
 
 // Program holds a binary representation of a PIO program.
 type Program struct {
-	Name   string
-	Labels map[string]uint16
-	Code   []uint16
+	Name             string
+	Wrap, WrapTarget uint16
+	Labels           map[string]uint16
+	Code             []uint16
 }
