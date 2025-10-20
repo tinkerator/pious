@@ -14,7 +14,7 @@ import (
 )
 
 // Disassemble disassembles a PIO instruction.
-func Disassemble(instr uint16, symbols map[uint16]string) (string, error) {
+func Disassemble(instr uint16, p *Program) (string, error) {
 	var dec Instruction
 	var cmd int
 	var decoded []string
@@ -37,9 +37,9 @@ func Disassemble(instr uint16, symbols map[uint16]string) (string, error) {
 	if dec.flags&flagAddress != 0 {
 		addr := uint16(instr & 0b11111)
 		noSym := true
-		if symbols != nil {
-			if sym, ok := symbols[addr]; ok {
-				decoded = append(decoded, sym)
+		if p != nil {
+			if sym, ok := p.Targets[addr]; ok {
+				decoded = append(decoded, sym[0])
 				noSym = false
 			}
 		}
@@ -188,8 +188,14 @@ func Disassemble(instr uint16, symbols map[uint16]string) (string, error) {
 		}
 	}
 
-	if delay := (instr >> 8) & 0b11111; delay != 0 {
-		// TODO handle side set before delay
+	sideMask := uint16(0b11111)
+	if p.SideSet != 0 {
+		side := (instr & 0b1111100000000) >> (8 + 5 - p.SideSet)
+		// TODO handle optional side set
+		decoded = append(decoded, fmt.Sprintf("\tside %d", side))
+		sideMask = sideMask >> p.SideSet
+	}
+	if delay := (instr >> 8) & sideMask; delay != 0 {
 		decoded = append(decoded, fmt.Sprintf(" [%d]", delay))
 	}
 	return strings.Join(decoded, ""), nil
@@ -216,7 +222,7 @@ var tokenizer = regexp.MustCompile("([, \r\t]+|//.*|;.*)")
 // Assemble converts a string of assembly code into its uint16
 // representation. The parsing is more relaxed than the official
 // syntax.
-func Assemble(code string, consts map[string]uint16) (uint16, error) {
+func Assemble(code string, p *Program) (uint16, error) {
 	tokens := tokenizer.Split(code, -1)
 	for i := 0; i < len(tokens); i++ {
 		if tokens[i] == "" {
@@ -247,7 +253,7 @@ func Assemble(code string, consts map[string]uint16) (uint16, error) {
 					break
 				}
 			}
-			n, err := parseConst(tokens[k], consts)
+			n, err := parseConst(tokens[k], p.Labels)
 			if err != nil {
 				return 0, err
 			}
@@ -355,7 +361,7 @@ func Assemble(code string, consts map[string]uint16) (uint16, error) {
 			if k != 2 {
 				return 0, ErrBad
 			}
-			n, err := parseConst(tokens[k], consts)
+			n, err := parseConst(tokens[k], p.Labels)
 			if err != nil {
 				return 0, err
 			}
@@ -378,7 +384,7 @@ func Assemble(code string, consts map[string]uint16) (uint16, error) {
 			if k != 2 {
 				return 0, ErrBad
 			}
-			n, err := parseConst(tokens[k], consts)
+			n, err := parseConst(tokens[k], p.Labels)
 			if err != nil {
 				return 0, err
 			}
@@ -494,7 +500,7 @@ func Assemble(code string, consts map[string]uint16) (uint16, error) {
 			if !found || k >= len(tokens) {
 				return 0, ErrBad
 			}
-			n, err := parseConst(tokens[k], consts)
+			n, err := parseConst(tokens[k], p.Labels)
 			if err != nil {
 				return 0, err
 			}
@@ -550,6 +556,24 @@ func Assemble(code string, consts map[string]uint16) (uint16, error) {
 			return 0, ErrBad
 		}
 
+		var sideVal uint16
+		sideMask := uint16(0b11111)
+		if p.SideSet > 0 {
+			// TODO handle optional side-set
+			if k > len(tokens)-2 || tokens[k] != "side" {
+				return 0, fmt.Errorf("omitted side-set %d bits needed", p.SideSet)
+			}
+			n, err := parseConst(tokens[k+1], nil)
+			if err != nil {
+				return 0, err
+			}
+			if limit := (uint16(1) << p.SideSet); n >= limit {
+				return 0, fmt.Errorf("too large for side-set %d bits needed", p.SideSet)
+			}
+			sideMask = sideMask >> p.SideSet
+			sideVal = n << (8 + 5 - p.SideSet)
+			k = k + 2
+		}
 		// parse a delay value
 		if k != len(tokens) {
 			if delay := tokens[k]; len(delay) >= 3 && delay[0] == '[' && delay[len(delay)-1] == ']' {
@@ -557,12 +581,14 @@ func Assemble(code string, consts map[string]uint16) (uint16, error) {
 				if err != nil {
 					return 0, err
 				}
-				if n == 32 {
+				if n&sideMask != n {
 					return 0, ErrBad
 				}
-				instr = instr | uint16(n<<8)
+				instr = instr | sideVal | uint16(n<<8)
 				k++
 			}
+		} else {
+			instr = instr | sideVal
 		}
 		if k != 1 {
 			return instr, nil
@@ -577,12 +603,14 @@ func Assemble(code string, consts map[string]uint16) (uint16, error) {
 func NewProgram(source string) (*Program, error) {
 	lines := strings.Split(source, "\n")
 	var code []uint16
-	labels := make(map[string]uint16)
 	var program string
 	wrap := uint16(0xffff)
 	wrapTarget := uint16(0xffff)
+	p := &Program{
+		Labels: make(map[string]uint16),
+	}
 	for i, line := range lines {
-		instr, err := Assemble(line, labels)
+		instr, err := Assemble(line, p)
 		if err == nil {
 			code = append(code, instr)
 			continue
@@ -603,7 +631,7 @@ func NewProgram(source string) (*Program, error) {
 			if len(tokens) != 2 {
 				return nil, fmt.Errorf("failed to parse line %d: %q", i, line)
 			}
-			program = tokens[1]
+			p.Name = tokens[1]
 		case ".wrap":
 			if len(tokens) != 1 || wrap != uint16(0xffff) {
 				return nil, fmt.Errorf("bad wrap line %d: %q", i, line)
@@ -614,19 +642,33 @@ func NewProgram(source string) (*Program, error) {
 				return nil, fmt.Errorf("bad wrap line %d: %q", i, line)
 			}
 			wrapTarget = uint16(len(code))
+		case ".side_set":
+			if len(tokens) != 2 || len(code) != 0 {
+				return nil, fmt.Errorf("too late to set side_set line %d: %q", i, line)
+			}
+			p.SideSet, err = parseConst(tokens[1], nil)
+			if err != nil {
+				return nil, fmt.Errorf("bad side_set value line %d: %q: %v", i, line, err)
+			}
+			if p.SideSet > 5 {
+				return nil, fmt.Errorf("max side_set value is 5, got %d at line %d: %q", p.SideSet, i, line)
+			}
 		default:
+			if len(tokens) == 0 || tokens[0] == "" {
+				continue
+			}
 			if len(tokens) != 1 || !strings.HasSuffix(tokens[0], ":") {
-				return nil, fmt.Errorf("failed to parse line %d: %q", i, line)
+				return nil, fmt.Errorf("unable to parse line %d: %q as %v", i, line, tokens)
 			}
 			label := tokens[0]
 			label = label[:len(label)-1]
 			if label == "" {
 				return nil, fmt.Errorf("missing label line %d: %q", i, line)
 			}
-			if value, hit := labels[label]; hit {
+			if value, hit := p.Labels[label]; hit {
 				return nil, fmt.Errorf("duplicate label %q declared at line %d of value %d", label, i, value)
 			}
-			labels[label] = uint16(len(code))
+			p.Labels[label] = uint16(len(code))
 		}
 	}
 	if program == "" {
@@ -638,41 +680,43 @@ func NewProgram(source string) (*Program, error) {
 	if wrapTarget == uint16(0xffff) {
 		wrapTarget = 0
 	}
-	return &Program{
-		Name:       program,
-		Labels:     labels,
-		Wrap:       wrap,
-		WrapTarget: wrapTarget,
-		Code:       code,
-	}, nil
+	targets := make(map[uint16][]string)
+	for label, addr := range p.Labels {
+		targets[addr] = append(targets[addr], label)
+	}
+	// Sorted order.
+	for addr, names := range targets {
+		sort.Strings(names)
+		targets[addr] = names
+	}
+	p.Targets = targets
+	p.Wrap = wrap
+	p.WrapTarget = wrapTarget
+	p.Code = code
+	return p, nil
 }
 
+// Disassemble disassembles a whole program, p, into a slice of string lines.
 func (p *Program) Disassemble() []string {
-	labels := make(map[uint16][]string)
-	for label, addr := range p.Labels {
-		labels[addr] = append(labels[addr], label)
-	}
-	targets := make(map[uint16]string)
-	for addr, label := range labels {
-		sort.Strings(label)
-		targets[addr] = label[0]
-	}
 	listing := []string{
 		fmt.Sprint(".program ", p.Name),
 	}
+	if p.SideSet != 0 {
+		listing = append(listing, fmt.Sprint(".side_set ", p.SideSet))
+	}
 	for i, code := range p.Code {
-		if list, ok := labels[uint16(i)]; ok {
-			for _, sym := range list {
-				listing = append(listing, fmt.Sprintf("%s:", sym))
-			}
-		}
 		if uint16(i) == p.WrapTarget {
 			listing = append(listing, ".wrap_target")
 		}
 		if uint16(i) == p.Wrap {
 			listing = append(listing, ".wrap")
 		}
-		text, err := Disassemble(code, targets)
+		if list, ok := p.Targets[uint16(i)]; ok {
+			for _, sym := range list {
+				listing = append(listing, fmt.Sprintf("%s:", sym))
+			}
+		}
+		text, err := Disassemble(code, p)
 		if err != nil {
 			panic(fmt.Sprintf("error at code offset %d: %v", i, err))
 		}

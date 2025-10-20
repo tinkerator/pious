@@ -33,6 +33,6 @@ func main() {
 		log.Printf("compiled: %#v", p)
 	}
 	for _, line := range p.Disassemble() {
-		fmt.Printf("read: %s\n", line)
+		fmt.Printf("%s\n", line)
 	}
 }

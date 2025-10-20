@@ -31,12 +31,12 @@ An example assembling and then disassembling a `.pio` program:
 
 ```
 $ go run examples/piocli.go --src pio/clock.pio
-read: .program clock
-read:   set     pindirs, 1
-read: .wrap_target
-read:   set     pins, 0 [1]
-read:   set     pins, 1 [1]
-read: .wrap
+.program clock
+	set	pindirs, 1
+.wrap_target
+	set	pins, 0 [1]
+	set	pins, 1 [1]
+.wrap
 ```
 
 That output matches the `pio/clock.pio` input.
@@ -99,16 +99,24 @@ but we provide a quick summary here:
 - `set` sets a register value from an immediate 5-bit value. Larger
   values need to be provided through `out` or `mov` operations.
 
+## Examples
+
+The `pio/` subdirectory contains some PIO example source files. These
+are used to validate the package, and provide some references for
+writing your own PIO code.
+
+So far, we have:
+
+- [`pio/clock.pio`](pio/clock.pio) a 2-cycle clock output (pico2 75 MHz)
+- [`pio/sider.pio`](pio/sider.pio) a simple SPI transfer loop (pico2 75 MHz)
+
 ## TODO
 
 Things I'm thinking about exploring:
 
 - Figure out how to generate `tinygo` compatible output.
 
-- Support side-set feature: immediate side-effect setting of a pin (or
-  up to 5 pins) when performing some other instruction. It is encoded
-  in a way that limits the amount instructions can delay, and that
-  limitation is a setting of the PIO state machine.
+- Support the optional side-set feature
 
 - PIO simulator for debugging.
 

@@ -1,0 +1,7 @@
+// Program from rp2350-datasheet.pdf
+.program spi_tx_fast
+.side_set 1
+
+loop:
+	out	pins, 1	side 0
+	jmp	loop  	side 1

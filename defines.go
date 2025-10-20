@@ -135,6 +135,8 @@ var (
 type Program struct {
 	Name             string
 	Wrap, WrapTarget uint16
+	SideSet          uint16
 	Labels           map[string]uint16
+	Targets          map[uint16][]string
 	Code             []uint16
 }
