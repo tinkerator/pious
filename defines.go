@@ -133,10 +133,28 @@ var (
 
 // Program holds a binary representation of a PIO program.
 type Program struct {
-	Name             string
+	// Name names the PIO program
+	Name string
+
+	// Origin identifies the starting PC of the PIO program.
+	Origin uint16
+
+	// Wrap indicates where to wrap the PC value, and WrapTarget
+	// is the value it is wrapped to.
 	Wrap, WrapTarget uint16
-	SideSet          uint16
-	Labels           map[string]uint16
-	Targets          map[uint16][]string
-	Code             []uint16
+
+	// SideSet indicates how many delay bits of the code syntax
+	// are reserved for side-set pin value setting.
+	SideSet uint16
+
+	// Labels holds the jump label to offset mapping.
+	Labels map[string]uint16
+
+	// Targets holds the reverse of the jump table, with values
+	// sorted lexicographically.
+	Targets map[uint16][]string
+
+	// Code holds the instructions that make up the executable PIO
+	// program.
+	Code []uint16
 }

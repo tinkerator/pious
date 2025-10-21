@@ -189,7 +189,7 @@ func Disassemble(instr uint16, p *Program) (string, error) {
 	}
 
 	sideMask := uint16(0b11111)
-	if p.SideSet != 0 {
+	if p != nil && p.SideSet != 0 {
 		side := (instr & 0b1111100000000) >> (8 + 5 - p.SideSet)
 		// TODO handle optional side set
 		decoded = append(decoded, fmt.Sprintf("\tside %d", side))
@@ -232,6 +232,10 @@ func Assemble(code string, p *Program) (uint16, error) {
 	if len(tokens) == 0 {
 		return 0, ErrEmpty
 	}
+	var labels map[string]uint16
+	if p != nil {
+		labels = p.Labels
+	}
 	for i, dec := range instructions {
 		if tokens[0] != dec.token {
 			continue
@@ -253,7 +257,7 @@ func Assemble(code string, p *Program) (uint16, error) {
 					break
 				}
 			}
-			n, err := parseConst(tokens[k], p.Labels)
+			n, err := parseConst(tokens[k], labels)
 			if err != nil {
 				return 0, err
 			}
@@ -361,7 +365,7 @@ func Assemble(code string, p *Program) (uint16, error) {
 			if k != 2 {
 				return 0, ErrBad
 			}
-			n, err := parseConst(tokens[k], p.Labels)
+			n, err := parseConst(tokens[k], labels)
 			if err != nil {
 				return 0, err
 			}
@@ -384,7 +388,7 @@ func Assemble(code string, p *Program) (uint16, error) {
 			if k != 2 {
 				return 0, ErrBad
 			}
-			n, err := parseConst(tokens[k], p.Labels)
+			n, err := parseConst(tokens[k], labels)
 			if err != nil {
 				return 0, err
 			}
@@ -500,7 +504,7 @@ func Assemble(code string, p *Program) (uint16, error) {
 			if !found || k >= len(tokens) {
 				return 0, ErrBad
 			}
-			n, err := parseConst(tokens[k], p.Labels)
+			n, err := parseConst(tokens[k], labels)
 			if err != nil {
 				return 0, err
 			}
@@ -558,7 +562,7 @@ func Assemble(code string, p *Program) (uint16, error) {
 
 		var sideVal uint16
 		sideMask := uint16(0b11111)
-		if p.SideSet > 0 {
+		if p != nil && p.SideSet > 0 {
 			// TODO handle optional side-set
 			if k > len(tokens)-2 || tokens[k] != "side" {
 				return 0, fmt.Errorf("omitted side-set %d bits needed", p.SideSet)
@@ -642,6 +646,11 @@ func NewProgram(source string) (*Program, error) {
 				return nil, fmt.Errorf("bad wrap line %d: %q", i, line)
 			}
 			wrapTarget = uint16(len(code))
+		case ".origin":
+			if len(tokens) != 1 {
+				return nil, fmt.Errorf("syntax error for .origin at line %d: %q", i, line)
+			}
+			p.Origin = uint16(len(code))
 		case ".side_set":
 			if len(tokens) != 2 || len(code) != 0 {
 				return nil, fmt.Errorf("too late to set side_set line %d: %q", i, line)
@@ -710,6 +719,9 @@ func (p *Program) Disassemble() []string {
 		}
 		if uint16(i) == p.Wrap {
 			listing = append(listing, ".wrap")
+		}
+		if uint16(i) == p.Origin && p.Origin != 0 {
+			listing = append(listing, ".origin")
 		}
 		if list, ok := p.Targets[uint16(i)]; ok {
 			for _, sym := range list {

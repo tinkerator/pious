@@ -49,6 +49,10 @@ details are provided in the [RP2350
 Datasheet](https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf),
 but we provide a quick summary here:
 
+NOTE: All instructions that assign values have an assignment direction
+      to the left, that is the syntax specifies the destination to the
+      left of the source.
+
 - `jmp` is the control flow jump instruction, it sets the next
   execution address. If it includes a condition then the condition
   must evaluate to true for the jump to be performed, otherwise PIO
