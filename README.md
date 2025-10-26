@@ -10,7 +10,7 @@ work with PIO sequences.
 
 ## Status
 
-The package only supports assembling and disassembling known PIO
+The package supports assembling and disassembling known PIO
 instructions. The tests are extracted from known assembly output.
 
 To explore:
@@ -40,6 +40,33 @@ $ go run examples/piocli.go --src pio/clock.pio
 ```
 
 That output matches the `pio/clock.pio` input.
+
+You can prepare a [tinygo](https://tinygo.org/) compatible package
+that uses the [`rp2-pio`](github.com/tinygo-org/pio/rp2-pio) package
+to manage a PIO sequence like this in the form of a package, `clock`
+in this case:
+
+```
+$ go install examples/piocli.go
+$ ~/go/bin/piocli --src pio/clock.pio --tinygo > /tmp/clock.go
+$ grep func /tmp/clock.go
+func (s *StateMachine) Start() {
+func (s *StateMachine) Activate(run bool) {
+func Assign(block *pio.PIO) (*Engine, error) {
+func (e *Engine) ConfigureClock(pinBase machine.Pin) (*StateMachine, error) {
+```
+
+The way to initialize this PIO code, then is to select a GPIO
+(`pinBase`) and use tinygo code like this:
+```
+e, _ := clock.Assign(rp2pio.PIO0)
+s, _ := e.ConfigureClock(machine.GPIO6)
+s.Start()
+```
+
+You can then disable or enable the running PIO clock driving
+machine.GPIO6 using `s.Activate(false)` and `s.Activate(true)`
+respectively.
 
 ## Reference
 
@@ -118,7 +145,12 @@ So far, we have:
 
 Things I'm thinking about exploring:
 
-- Figure out how to generate `tinygo` compatible output.
+- Figure out how to fully clear a PIO block (i.e. reclaim it at
+  runtime). Uses block.ClearProgramSection(), but need to disable
+  state machines first.
+
+- Figure out how to adjust the PIO frequency. My initial attempts
+  don't appear to be reliable with the rp2-pio code yet.
 
 - Support the optional side-set feature
 

@@ -131,8 +131,8 @@ var (
 	ErrEmpty = errors.New("empty instruction")
 )
 
-// Program holds a binary representation of a PIO program.
-type Program struct {
+// Settings holds all of the details to configure the code in a Program.
+type Settings struct {
 	// Name names the PIO program
 	Name string
 
@@ -147,6 +147,18 @@ type Program struct {
 	// are reserved for side-set pin value setting.
 	SideSet uint16
 
+	// Set indicates how many pins are set when set is used with
+	// pins as a target.
+	Set uint16
+}
+
+// Program holds a binary representation of a PIO program.
+type Program struct {
+	// Attr holds the settings to configure a program.  Note,
+	// sub-programs within this program may have entries in the
+	// Modules field.
+	Attr Settings
+
 	// Labels holds the jump label to offset mapping.
 	Labels map[string]uint16
 
@@ -157,4 +169,9 @@ type Program struct {
 	// Code holds the instructions that make up the executable PIO
 	// program.
 	Code []uint16
+
+	// Modules holds a sorted array of sub-programs within the
+	// code sequence. This is typically filled in by the
+	// (*Program).Cat() method.
+	Modules []Settings
 }

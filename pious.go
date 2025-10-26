@@ -189,11 +189,11 @@ func Disassemble(instr uint16, p *Program) (string, error) {
 	}
 
 	sideMask := uint16(0b11111)
-	if p != nil && p.SideSet != 0 {
-		side := (instr & 0b1111100000000) >> (8 + 5 - p.SideSet)
+	if p != nil && p.Attr.SideSet != 0 {
+		side := (instr & 0b1111100000000) >> (8 + 5 - p.Attr.SideSet)
 		// TODO handle optional side set
 		decoded = append(decoded, fmt.Sprintf("\tside %d", side))
-		sideMask = sideMask >> p.SideSet
+		sideMask = sideMask >> p.Attr.SideSet
 	}
 	if delay := (instr >> 8) & sideMask; delay != 0 {
 		decoded = append(decoded, fmt.Sprintf(" [%d]", delay))
@@ -562,20 +562,20 @@ func Assemble(code string, p *Program) (uint16, error) {
 
 		var sideVal uint16
 		sideMask := uint16(0b11111)
-		if p != nil && p.SideSet > 0 {
+		if p != nil && p.Attr.SideSet > 0 {
 			// TODO handle optional side-set
 			if k > len(tokens)-2 || tokens[k] != "side" {
-				return 0, fmt.Errorf("omitted side-set %d bits needed", p.SideSet)
+				return 0, fmt.Errorf("omitted side-set %d bits needed", p.Attr.SideSet)
 			}
 			n, err := parseConst(tokens[k+1], nil)
 			if err != nil {
 				return 0, err
 			}
-			if limit := (uint16(1) << p.SideSet); n >= limit {
-				return 0, fmt.Errorf("too large for side-set %d bits needed", p.SideSet)
+			if limit := (uint16(1) << p.Attr.SideSet); n >= limit {
+				return 0, fmt.Errorf("too large for side-set %d bits needed", p.Attr.SideSet)
 			}
-			sideMask = sideMask >> p.SideSet
-			sideVal = n << (8 + 5 - p.SideSet)
+			sideMask = sideMask >> p.Attr.SideSet
+			sideVal = n << (8 + 5 - p.Attr.SideSet)
 			k = k + 2
 		}
 		// parse a delay value
@@ -601,6 +601,20 @@ func Assemble(code string, p *Program) (uint16, error) {
 	return 0, ErrBad
 }
 
+// buildTargets computes the inverse label map for a program.
+func (p *Program) buildTargets() {
+	targets := make(map[uint16][]string)
+	for label, addr := range p.Labels {
+		targets[addr] = append(targets[addr], label)
+	}
+	// Sorted order.
+	for addr, names := range targets {
+		sort.Strings(names)
+		targets[addr] = names
+	}
+	p.Targets = targets
+}
+
 // NewProgram compiles a PIO program from source. The source format is
 // intended to be compatible with that described in the [RP2350
 // Datasheet].
@@ -612,6 +626,9 @@ func NewProgram(source string) (*Program, error) {
 	wrapTarget := uint16(0xffff)
 	p := &Program{
 		Labels: make(map[string]uint16),
+		Attr: Settings{
+			Set: 0xffff,
+		},
 	}
 	for i, line := range lines {
 		instr, err := Assemble(line, p)
@@ -635,12 +652,12 @@ func NewProgram(source string) (*Program, error) {
 			if len(tokens) != 2 {
 				return nil, fmt.Errorf("failed to parse line %d: %q", i, line)
 			}
-			p.Name = tokens[1]
+			p.Attr.Name = tokens[1]
 		case ".wrap":
 			if len(tokens) != 1 || wrap != uint16(0xffff) {
 				return nil, fmt.Errorf("bad wrap line %d: %q", i, line)
 			}
-			wrap = uint16(len(code))
+			wrap = uint16(len(code)) - 1
 		case ".wrap_target":
 			if len(tokens) != 1 || wrapTarget != uint16(0xffff) {
 				return nil, fmt.Errorf("bad wrap line %d: %q", i, line)
@@ -650,17 +667,28 @@ func NewProgram(source string) (*Program, error) {
 			if len(tokens) != 1 {
 				return nil, fmt.Errorf("syntax error for .origin at line %d: %q", i, line)
 			}
-			p.Origin = uint16(len(code))
+			p.Attr.Origin = uint16(len(code))
 		case ".side_set":
 			if len(tokens) != 2 || len(code) != 0 {
 				return nil, fmt.Errorf("too late to set side_set line %d: %q", i, line)
 			}
-			p.SideSet, err = parseConst(tokens[1], nil)
+			p.Attr.SideSet, err = parseConst(tokens[1], nil)
 			if err != nil {
 				return nil, fmt.Errorf("bad side_set value line %d: %q: %v", i, line, err)
 			}
-			if p.SideSet > 5 {
-				return nil, fmt.Errorf("max side_set value is 5, got %d at line %d: %q", p.SideSet, i, line)
+			if p.Attr.SideSet > 5 {
+				return nil, fmt.Errorf("max side_set value is 5, got %d at line %d: %q", p.Attr.SideSet, i, line)
+			}
+		case ".set":
+			if len(tokens) != 2 || len(code) != 0 {
+				return nil, fmt.Errorf("too late to set count line %d: %q", i, line)
+			}
+			p.Attr.Set, err = parseConst(tokens[1], nil)
+			if err != nil {
+				return nil, fmt.Errorf("bad set value line %d: %q: %v", i, line, err)
+			}
+			if p.Attr.Set > 5 {
+				return nil, fmt.Errorf("max set value is 5, got %d at line %d: %q", p.Attr.Set, i, line)
 			}
 		default:
 			if len(tokens) == 0 || tokens[0] == "" {
@@ -689,18 +717,12 @@ func NewProgram(source string) (*Program, error) {
 	if wrapTarget == uint16(0xffff) {
 		wrapTarget = 0
 	}
-	targets := make(map[uint16][]string)
-	for label, addr := range p.Labels {
-		targets[addr] = append(targets[addr], label)
+	p.buildTargets()
+	p.Attr.Wrap = wrap
+	p.Attr.WrapTarget = wrapTarget
+	if p.Attr.Set == 0xffff {
+		p.Attr.Set = 1
 	}
-	// Sorted order.
-	for addr, names := range targets {
-		sort.Strings(names)
-		targets[addr] = names
-	}
-	p.Targets = targets
-	p.Wrap = wrap
-	p.WrapTarget = wrapTarget
 	p.Code = code
 	return p, nil
 }
@@ -708,19 +730,19 @@ func NewProgram(source string) (*Program, error) {
 // Disassemble disassembles a whole program, p, into a slice of string lines.
 func (p *Program) Disassemble() []string {
 	listing := []string{
-		fmt.Sprint(".program ", p.Name),
+		fmt.Sprint(".program ", p.Attr.Name),
 	}
-	if p.SideSet != 0 {
-		listing = append(listing, fmt.Sprint(".side_set ", p.SideSet))
+	if p.Attr.SideSet != 0 {
+		listing = append(listing, fmt.Sprint(".side_set ", p.Attr.SideSet))
+	}
+	if p.Attr.Set != 1 {
+		listing = append(listing, fmt.Sprint(".set ", p.Attr.Set))
 	}
 	for i, code := range p.Code {
-		if uint16(i) == p.WrapTarget {
+		if uint16(i) == p.Attr.WrapTarget {
 			listing = append(listing, ".wrap_target")
 		}
-		if uint16(i) == p.Wrap {
-			listing = append(listing, ".wrap")
-		}
-		if uint16(i) == p.Origin && p.Origin != 0 {
+		if uint16(i) == p.Attr.Origin && p.Attr.Origin != 0 {
 			listing = append(listing, ".origin")
 		}
 		if list, ok := p.Targets[uint16(i)]; ok {
@@ -733,9 +755,82 @@ func (p *Program) Disassemble() []string {
 			panic(fmt.Sprintf("error at code offset %d: %v", i, err))
 		}
 		listing = append(listing, fmt.Sprintf("\t%s", text))
+		if uint16(i) == p.Attr.Wrap {
+			listing = append(listing, ".wrap")
+		}
 	}
-	if p.Wrap == uint16(len(p.Code)) {
+	if list, ok := p.Targets[uint16(len(p.Code))]; ok {
+		for _, sym := range list {
+			listing = append(listing, fmt.Sprintf("%s:", sym))
+		}
+	}
+	if p.Attr.Wrap == uint16(len(p.Code)) {
 		listing = append(listing, ".wrap")
 	}
 	return listing
+}
+
+// jumpCodeAdjust recognizes that a code is a jump code and applies a
+// delta and returns that this is a jump and the recoded version of
+// the code.
+func jumpCodeAdjust(code uint16, delta uint16) (recode uint16) {
+	ins := instructions[idxJMP]
+	if code&ins.mask != ins.bits {
+		recode = code
+		return
+	}
+	is := (code & 0b11111) + delta
+	recode = (is & 0b11111) | (code & ^uint16(0b11111))
+	return
+}
+
+// Cat merges together a number of programs to create a combination
+// program with multiple entry and wrapping targets. The idea is that
+// different state machines running within one of the PIO<N> units can
+// perform different PIO tasks.
+func Cat(name string, ps ...*Program) (*Program, error) {
+	prog := &Program{
+		Attr: Settings{
+			Name: name,
+		},
+		Labels: make(map[string]uint16),
+	}
+	var offset uint16
+	for i, p := range ps {
+		attr := Settings{
+			Name:       p.Attr.Name,
+			Origin:     offset + p.Attr.Origin,
+			Wrap:       offset + p.Attr.Wrap,
+			WrapTarget: offset + p.Attr.WrapTarget,
+			SideSet:    p.Attr.SideSet,
+			Set:        p.Attr.Set,
+		}
+		prog.Labels[fmt.Sprint(p.Attr.Name, i, "_origin")] = offset + p.Attr.Origin
+		prog.Labels[fmt.Sprint(p.Attr.Name, i, "_wrap")] = offset + p.Attr.Wrap
+		prog.Labels[fmt.Sprint(p.Attr.Name, i, "_wrap_target")] = offset + p.Attr.WrapTarget
+		for label, val := range p.Labels {
+			prog.Labels[fmt.Sprint(p.Attr.Name, i, "_", label)] = offset + val
+		}
+		for _, c := range p.Code {
+			prog.Code = append(prog.Code, jumpCodeAdjust(c, offset))
+		}
+		offset += uint16(len(p.Code))
+		prog.Modules = append(prog.Modules, attr)
+	}
+	if len(prog.Code) > 32 {
+		return nil, fmt.Errorf("combined code for %q too long: %d > 32", name, len(prog.Code))
+	}
+	prog.buildTargets()
+	prog.Attr.Wrap = uint16(len(prog.Code))
+
+	return prog, nil
+}
+
+var cCaseRE = regexp.MustCompile(`_[a-zA-Z]`)
+
+// camelCase rewrites a symbol to be more Go friendly.
+func camelCase(text string) string {
+	return cCaseRE.ReplaceAllStringFunc(text, func(a string) string {
+		return strings.ToUpper(a[1:])
+	})
 }

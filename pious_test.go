@@ -36,9 +36,14 @@ func TestDisassemble(t *testing.T) {
 }
 
 func TestAssemble(t *testing.T) {
-	for _, p := range []*Program{nil, &Program{
-		SideSet: 2,
-	}} {
+	for _, p := range []*Program{
+		nil,
+		&Program{
+			Attr: Settings{
+				SideSet: 2,
+			},
+		},
+	} {
 		for i := 0; i <= 0xffff; i++ {
 			d, err := Disassemble(uint16(i), p)
 			if err != nil {
