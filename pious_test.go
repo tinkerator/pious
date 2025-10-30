@@ -40,7 +40,13 @@ func TestAssemble(t *testing.T) {
 		nil,
 		&Program{
 			Attr: Settings{
-				SideSet: 2,
+				SideSet: 1,
+			},
+		},
+		&Program{
+			Attr: Settings{
+				SideSet:    2,
+				SideSetOpt: true,
 			},
 		},
 	} {

@@ -147,6 +147,18 @@ type Settings struct {
 	// are reserved for side-set pin value setting.
 	SideSet uint16
 
+	// SideSetOpt indicates that an extra delay bit is used to
+	// indicate if an instruction has a side-set pin value.  This
+	// means that if you devote all delay bits to an optional
+	// side-set, that side-set can only be 4 bits long. For
+	// smaller side-sets, you retain the ability for instructions
+	// to delay by the unused bits width of cycle delay.
+	SideSetOpt bool
+
+	// SideSetPindirs indicates that the side-set applies to
+	// pindirs instead of pins.
+	SideSetPindirs bool
+
 	// Set indicates how many pins are set when set is used with
 	// pins as a target.
 	Set uint16

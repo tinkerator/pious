@@ -102,6 +102,13 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), `) (*StateMachine, error)
 	}
 	sm.SetPindirsConsecutive(sideSetBase, `, m.SideSet, `, true)
 	cfg.SetSidesetPins(sideSetBase, `, m.SideSet, `)`))
+			if m.SideSetOpt || m.SideSetPindirs {
+				bitCount := m.SideSet
+				if m.SideSetOpt {
+					bitCount++
+				}
+				lines = append(lines, fmt.Sprint(`	cfg.SetSidesetParams(`, bitCount, `, `, m.SideSetOpt, `, `, m.SideSetPindirs, `)`))
+			}
 		}
 
 		lines = append(lines, strings.Split(fmt.Sprint(`	return &StateMachine{

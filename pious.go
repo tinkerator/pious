@@ -2,7 +2,7 @@
 // RP2350 PIO code. This package was written after reading the PIO
 // details in the [RP2350 Datasheet].
 //
-// [RP2350 Datasheet] https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf
+// [RP2350 Datasheet]: https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf
 package pious
 
 import (
@@ -190,9 +190,18 @@ func Disassemble(instr uint16, p *Program) (string, error) {
 
 	sideMask := uint16(0b11111)
 	if p != nil && p.Attr.SideSet != 0 {
-		side := (instr & 0b1111100000000) >> (8 + 5 - p.Attr.SideSet)
-		// TODO handle optional side set
-		decoded = append(decoded, fmt.Sprintf("\tside %d", side))
+		if p.Attr.SideSetOpt {
+			side := (instr & 0b0111100000000) >> (8 + 4 - p.Attr.SideSet)
+			if (instr & 0b1000000000000) != 0 {
+				decoded = append(decoded, fmt.Sprintf("\tside %d", side))
+			} else if side != 0 {
+				return fmt.Sprintf("invalid opt side-set <%04x>", instr), ErrBad
+			}
+			sideMask = sideMask >> 1
+		} else {
+			side := (instr & 0b1111100000000) >> (8 + 5 - p.Attr.SideSet)
+			decoded = append(decoded, fmt.Sprintf("\tside %d", side))
+		}
 		sideMask = sideMask >> p.Attr.SideSet
 	}
 	if delay := (instr >> 8) & sideMask; delay != 0 {
@@ -563,20 +572,28 @@ func Assemble(code string, p *Program) (uint16, error) {
 		var sideVal uint16
 		sideMask := uint16(0b11111)
 		if p != nil && p.Attr.SideSet > 0 {
-			// TODO handle optional side-set
-			if k > len(tokens)-2 || tokens[k] != "side" {
-				return 0, fmt.Errorf("omitted side-set %d bits needed", p.Attr.SideSet)
+			hasSide := k <= len(tokens)-2 && tokens[k] == "side"
+			if hasSide {
+				n, err := parseConst(tokens[k+1], nil)
+				if err != nil {
+					return 0, err
+				}
+				if limit := (uint16(1) << p.Attr.SideSet); n >= limit {
+					return 0, fmt.Errorf("too large for side-set %d bits needed", p.Attr.SideSet)
+				}
+				if p.Attr.SideSetOpt {
+					sideVal = 0b1000000000000 | (n << (8 + 4 - p.Attr.SideSet))
+				} else {
+					sideVal = n << (8 + 5 - p.Attr.SideSet)
+				}
+				k = k + 2
+			} else if !p.Attr.SideSetOpt {
+				return 0, fmt.Errorf("omitted non-optional side-set %d bits needed", p.Attr.SideSet)
 			}
-			n, err := parseConst(tokens[k+1], nil)
-			if err != nil {
-				return 0, err
-			}
-			if limit := (uint16(1) << p.Attr.SideSet); n >= limit {
-				return 0, fmt.Errorf("too large for side-set %d bits needed", p.Attr.SideSet)
+			if p.Attr.SideSetOpt {
+				sideMask = sideMask >> 1
 			}
 			sideMask = sideMask >> p.Attr.SideSet
-			sideVal = n << (8 + 5 - p.Attr.SideSet)
-			k = k + 2
 		}
 		// parse a delay value
 		if k != len(tokens) {
@@ -669,16 +686,33 @@ func NewProgram(source string) (*Program, error) {
 			}
 			p.Attr.Origin = uint16(len(code))
 		case ".side_set":
-			if len(tokens) != 2 || len(code) != 0 {
+			if len(tokens) < 2 || len(code) != 0 {
 				return nil, fmt.Errorf("too late to set side_set line %d: %q", i, line)
 			}
 			p.Attr.SideSet, err = parseConst(tokens[1], nil)
 			if err != nil {
 				return nil, fmt.Errorf("bad side_set value line %d: %q: %v", i, line, err)
 			}
-			if p.Attr.SideSet > 5 {
+			k := 2
+			if len(tokens) > k && tokens[k] == "opt" {
+				p.Attr.SideSetOpt = true
+				if p.Attr.SideSet > 4 {
+					return nil, fmt.Errorf("max optional side_set value is 4, got %d at line %d: %q", p.Attr.SideSet, i, line)
+				}
+				k++
+			} else if p.Attr.SideSet > 5 {
 				return nil, fmt.Errorf("max side_set value is 5, got %d at line %d: %q", p.Attr.SideSet, i, line)
 			}
+			if len(tokens) == k {
+				break
+			}
+			if tokens[k] != "pindirs" {
+				return nil, fmt.Errorf("no pindirs at line %d: %q", i, line)
+			}
+			if len(tokens) > k+1 {
+				return nil, fmt.Errorf("syntax error at line %d: %q", i, line)
+			}
+			p.Attr.SideSetPindirs = true
 		case ".set":
 			if len(tokens) != 2 || len(code) != 0 {
 				return nil, fmt.Errorf("too late to set count line %d: %q", i, line)
@@ -733,7 +767,14 @@ func (p *Program) Disassemble() []string {
 		fmt.Sprint(".program ", p.Attr.Name),
 	}
 	if p.Attr.SideSet != 0 {
-		listing = append(listing, fmt.Sprint(".side_set ", p.Attr.SideSet))
+		var parts []string
+		if p.Attr.SideSetOpt {
+			parts = append(parts, " opt")
+		}
+		if p.Attr.SideSetPindirs {
+			parts = append(parts, " pindirs")
+		}
+		listing = append(listing, fmt.Sprint(".side_set ", p.Attr.SideSet, strings.Join(parts, "")))
 	}
 	if p.Attr.Set != 1 {
 		listing = append(listing, fmt.Sprint(".set ", p.Attr.Set))
