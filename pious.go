@@ -839,12 +839,14 @@ func Cat(name string, ps ...*Program) (*Program, error) {
 	var offset uint16
 	for i, p := range ps {
 		attr := Settings{
-			Name:       p.Attr.Name,
-			Origin:     offset + p.Attr.Origin,
-			Wrap:       offset + p.Attr.Wrap,
-			WrapTarget: offset + p.Attr.WrapTarget,
-			SideSet:    p.Attr.SideSet,
-			Set:        p.Attr.Set,
+			Name:           p.Attr.Name,
+			Origin:         offset + p.Attr.Origin,
+			Wrap:           offset + p.Attr.Wrap,
+			WrapTarget:     offset + p.Attr.WrapTarget,
+			SideSet:        p.Attr.SideSet,
+			SideSetOpt:     p.Attr.SideSetOpt,
+			SideSetPindirs: p.Attr.SideSetPindirs,
+			Set:            p.Attr.Set,
 		}
 		prog.Labels[fmt.Sprint(p.Attr.Name, i, "_origin")] = offset + p.Attr.Origin
 		prog.Labels[fmt.Sprint(p.Attr.Name, i, "_wrap")] = offset + p.Attr.Wrap

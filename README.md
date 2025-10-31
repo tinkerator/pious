@@ -144,6 +144,8 @@ So far, we have:
 
 Things I'm thinking about exploring:
 
+- support `.in` and `.out` directives
+
 - Figure out how to fully clear a PIO block (i.e. reclaim it at
   runtime). Uses block.ClearProgramSection(), but need to disable
   state machines first.
