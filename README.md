@@ -107,9 +107,9 @@ NOTE: All instructions that assign values have an assignment direction
   `exec`. The shift wholly sets the destination register with
   unshifted bits being set to zero. In this way, we are setting the
   register with a subset of the `osr` bits. If _automatic pull_ is
-  enabled, then `osr` is refilled from `rxfifo` when it is
+  enabled, then `osr` is refilled from `txfifo` when it is
   sufficiently empty, or stalls until something has been inserted into
-  the `rxfifo`.
+  the `txfifo`.
 
 - `push` can be used to more explicitly push (as opposed to _automatic
   push_) whole 32-bit `isr` values into the `rxfifo`.
@@ -143,8 +143,6 @@ So far, we have:
 ## TODO
 
 Things I'm thinking about exploring:
-
-- support `.in` and `.out` directives
 
 - Figure out how to fully clear a PIO block (i.e. reclaim it at
   runtime). Uses block.ClearProgramSection(), but need to disable

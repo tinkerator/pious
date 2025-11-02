@@ -71,28 +71,38 @@ func Assign(block *pio.PIO) (*Engine, error) {
 	for _, m := range mods {
 		fn := camelCase("Configure_" + m.Name)
 		var args []string
+		if m.In != 0 {
+			args = append(args, "inBase")
+		}
+		if m.Out != 0 {
+			args = append(args, "outBase")
+		}
 		if m.SideSet != 0 {
 			args = append(args, "sideSetBase")
 		}
-		args = append(args, "pinBase machine.Pin")
+		if m.Set != 0 {
+			args = append(args, "setBase")
+		}
 		lines = append(lines, strings.Split(fmt.Sprint(`// `, fn, ` sets up a `, m.Name, ` module. It operates with
-// a side-set size of `, m.SideSet, ` and pins set size of `, m.Set, ` bits.
-func (e *Engine) `, fn, `(`, strings.Join(args, ", "), `) (*StateMachine, error) {
+// an in size of ", m.In, " bits; an out size of ", m.Out, " bits;
+// a side-set size of `, m.SideSet, `; and a pins set size of `, m.Set, ` bits.
+func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMachine, error) {
 	sm, err := e.block.ClaimStateMachine()
 	if err != nil {
 		return nil, err
 	}
-	pin := pinBase
+	cfg := pio.DefaultStateMachineConfig()
+	cfg.SetWrap(e.offset+`, m.WrapTarget, `, e.offset+`, m.Wrap, `)
+	cfg.SetSetPins(setBase, `, m.Set, `)`), "\n")...)
+
+		if m.Set != 0 {
+			lines = append(lines, fmt.Sprint(`	pin := setBase
 	for i := 0; i < `, m.Set, `; i++ {
 		pin.Configure(machine.PinConfig{Mode: e.block.PinMode()})
 		pin++
 	}
-	sm.SetPindirsConsecutive(pinBase, `, m.Set, `, true)
-
-	// Configure Origin and Wraps, SideSet etc
-	cfg := pio.DefaultStateMachineConfig()
-	cfg.SetWrap(e.offset+`, m.WrapTarget, `, e.offset+`, m.Wrap, `)
-	cfg.SetSetPins(pinBase, `, m.Set, `)`), "\n")...)
+	sm.SetPindirsConsecutive(setBase, `, m.Set, `, true)`))
+		}
 
 		if m.SideSet != 0 {
 			lines = append(lines, fmt.Sprint(`	pin = sideSetBase
@@ -109,6 +119,26 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), `) (*StateMachine, error)
 				}
 				lines = append(lines, fmt.Sprint(`	cfg.SetSidesetParams(`, bitCount, `, `, m.SideSetOpt, `, `, m.SideSetPindirs, `)`))
 			}
+		}
+
+		if m.Out != 0 {
+			lines = append(lines, fmt.Sprint(`	pin = outBase
+	for i := 0; i < `, m.Out, `; i++ {
+		pin.Configure(machine.PinConfig{Mode: e.block.PinMode()})
+		pin++
+	}
+	sm.SetOutPins(outBase, `, m.Out, `)
+	cfg.SetOutShift(`, !m.OutLeft, `, `, m.OutAuto, `, `, m.OutThreshold, `)`))
+		}
+
+		if m.In != 0 {
+			lines = append(lines, fmt.Sprint(`	pin = inBase
+	for i := 0; i < `, m.In, `; i++ {
+		pin.Configure(machine.PinConfig{Mode: e.block.PinMode()})
+		pin++
+	}
+	sm.SetInPins(inBase, `, m.In, `)
+	cfg.SetInShift(`, !m.InLeft, `, `, m.InAuto, `, `, m.InThreshold, `)`))
 		}
 
 		lines = append(lines, strings.Split(fmt.Sprint(`	return &StateMachine{

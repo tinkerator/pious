@@ -507,6 +507,9 @@ func Assemble(code string, p *Program) (uint16, error) {
 					instr = instr | uint16(i<<5)
 					k++
 					found = true
+					if p != nil && i == 0 /* pins */ && p.Attr.Set == 0 {
+						p.Attr.Set = 1
+					}
 					break
 				}
 			}
@@ -643,9 +646,6 @@ func NewProgram(source string) (*Program, error) {
 	wrapTarget := uint16(0xffff)
 	p := &Program{
 		Labels: make(map[string]uint16),
-		Attr: Settings{
-			Set: 0xffff,
-		},
 	}
 	for i, line := range lines {
 		instr, err := Assemble(line, p)
@@ -724,6 +724,88 @@ func NewProgram(source string) (*Program, error) {
 			if p.Attr.Set > 5 {
 				return nil, fmt.Errorf("max set value is 5, got %d at line %d: %q", p.Attr.Set, i, line)
 			}
+		case ".out":
+			if len(code) != 0 {
+				return nil, fmt.Errorf("too late to .out at line %d: %q", i, line)
+			}
+			if len(tokens) < 2 {
+				return nil, fmt.Errorf(".out requires a pin value at line %d: %q", i, line)
+			}
+			p.Attr.Out, err = parseConst(tokens[1], nil)
+			if err != nil || p.Attr.Out == 0 {
+				return nil, fmt.Errorf(".out requires bit count > 0 and <= 32 at line %d: %q", i, line)
+			}
+			k := 2
+			if len(tokens) > k {
+				switch tokens[k] {
+				case "left", "right":
+					p.Attr.OutLeft = tokens[k] == "left"
+					k++
+				default:
+				}
+			}
+			if len(tokens) == k {
+				break
+			}
+			if tokens[k] != "auto" {
+				return nil, fmt.Errorf("expecting \"auto\" at line %d: %q", i, line)
+			}
+			k++
+			if k == len(tokens) {
+				break
+			}
+			p.Attr.OutThreshold, err = parseConst(tokens[k], nil)
+			if err != nil || p.Attr.OutThreshold == 0 {
+				return nil, fmt.Errorf("expecting threshold in range (0,32] at line %d: %q", i, line)
+			}
+			if p.Attr.OutThreshold == 32 {
+				p.Attr.OutThreshold = 0
+			}
+			k++
+			if k != len(tokens) {
+				return nil, fmt.Errorf(".out syntax error at line %d: %q", i, line)
+			}
+		case ".in":
+			if len(code) != 0 {
+				return nil, fmt.Errorf("too late to .in at line %d: %q", i, line)
+			}
+			if len(tokens) < 2 {
+				return nil, fmt.Errorf(".in requires a pin value at line %d: %q", i, line)
+			}
+			p.Attr.In, err = parseConst(tokens[1], nil)
+			if err != nil || p.Attr.In == 0 {
+				return nil, fmt.Errorf(".in requires bit count > 0 and <= 32 at line %d: %q", i, line)
+			}
+			k := 2
+			if len(tokens) > k {
+				switch tokens[k] {
+				case "left", "right":
+					p.Attr.InLeft = tokens[k] == "left"
+					k++
+				default:
+				}
+			}
+			if len(tokens) == k {
+				break
+			}
+			if tokens[k] != "auto" {
+				return nil, fmt.Errorf("expecting \"auto\" at line %d: %q", i, line)
+			}
+			k++
+			if k == len(tokens) {
+				break
+			}
+			p.Attr.InThreshold, err = parseConst(tokens[k], nil)
+			if err != nil || p.Attr.InThreshold == 0 {
+				return nil, fmt.Errorf("expecting threshold in range (0,32] at line %d: %q", i, line)
+			}
+			if p.Attr.InThreshold == 32 {
+				p.Attr.InThreshold = 0
+			}
+			k++
+			if k != len(tokens) {
+				return nil, fmt.Errorf(".in syntax error at line %d: %q", i, line)
+			}
 		default:
 			if len(tokens) == 0 || tokens[0] == "" {
 				continue
@@ -754,9 +836,6 @@ func NewProgram(source string) (*Program, error) {
 	p.buildTargets()
 	p.Attr.Wrap = wrap
 	p.Attr.WrapTarget = wrapTarget
-	if p.Attr.Set == 0xffff {
-		p.Attr.Set = 1
-	}
 	p.Code = code
 	return p, nil
 }
@@ -765,6 +844,28 @@ func NewProgram(source string) (*Program, error) {
 func (p *Program) Disassemble() []string {
 	listing := []string{
 		fmt.Sprint(".program ", p.Attr.Name),
+	}
+	if p.Attr.In != 0 {
+		var suffix string
+		if p.Attr.InThreshold != 0 {
+			suffix = fmt.Sprint(" auto ", p.Attr.InThreshold)
+		}
+		if p.Attr.InLeft {
+			listing = append(listing, fmt.Sprintf(".in %d left%s", p.Attr.In, suffix))
+		} else {
+			listing = append(listing, fmt.Sprintf(".in %d right%s", p.Attr.In, suffix))
+		}
+	}
+	if p.Attr.Out != 0 {
+		var suffix string
+		if p.Attr.OutThreshold != 0 {
+			suffix = fmt.Sprint(" auto ", p.Attr.OutThreshold)
+		}
+		if p.Attr.OutLeft {
+			listing = append(listing, fmt.Sprintf(".out %d left%s", p.Attr.Out, suffix))
+		} else {
+			listing = append(listing, fmt.Sprintf(".out %d right%s", p.Attr.Out, suffix))
+		}
 	}
 	if p.Attr.SideSet != 0 {
 		var parts []string
@@ -776,7 +877,7 @@ func (p *Program) Disassemble() []string {
 		}
 		listing = append(listing, fmt.Sprint(".side_set ", p.Attr.SideSet, strings.Join(parts, "")))
 	}
-	if p.Attr.Set != 1 {
+	if p.Attr.Set != 0 {
 		listing = append(listing, fmt.Sprint(".set ", p.Attr.Set))
 	}
 	for i, code := range p.Code {
@@ -847,6 +948,14 @@ func Cat(name string, ps ...*Program) (*Program, error) {
 			SideSetOpt:     p.Attr.SideSetOpt,
 			SideSetPindirs: p.Attr.SideSetPindirs,
 			Set:            p.Attr.Set,
+			Out:            p.Attr.Out,
+			OutLeft:        p.Attr.OutLeft,
+			OutAuto:        p.Attr.OutAuto,
+			OutThreshold:   p.Attr.OutThreshold,
+			In:             p.Attr.In,
+			InLeft:         p.Attr.InLeft,
+			InAuto:         p.Attr.InAuto,
+			InThreshold:    p.Attr.InThreshold,
 		}
 		prog.Labels[fmt.Sprint(p.Attr.Name, i, "_origin")] = offset + p.Attr.Origin
 		prog.Labels[fmt.Sprint(p.Attr.Name, i, "_wrap")] = offset + p.Attr.Wrap

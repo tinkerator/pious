@@ -162,6 +162,38 @@ type Settings struct {
 	// Set indicates how many pins are set when set is used with
 	// pins as a target.
 	Set uint16
+
+	// Out indicates the number of bits to use.
+	Out uint16
+
+	// OutLeft confirms the shift direction out of OSR is left
+	// (MSB first). The default shift direction is right (LSB
+	// first).
+	OutLeft bool
+
+	// OutAuto confirms auto-pull for OSR from the txfifo.
+	OutAuto bool
+
+	// OutThreshold defines the number of bits auto-shifted into
+	// OSR from the txfifo. The default value (0) is interpreted
+	// as 32-bits.
+	OutThreshold uint16
+
+	// In indicates the number of bits to use.
+	In uint16
+
+	// InLeft confirms the shift direction in of ISR is left
+	// (MSB first). The default shift direction is right (LSB
+	// first).
+	InLeft bool
+
+	// InAuto confirms auto-push for ISR to the rxfifo.
+	InAuto bool
+
+	// InThreshold defines the number of bits auto-pushed into
+	// ISR to the rxfifo. The default value (0) is interpreted
+	// as 32-bits.
+	InThreshold uint16
 }
 
 // Program holds a binary representation of a PIO program.
