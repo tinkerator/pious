@@ -750,6 +750,7 @@ func NewProgram(source string) (*Program, error) {
 			if tokens[k] != "auto" {
 				return nil, fmt.Errorf("expecting \"auto\" at line %d: %q", i, line)
 			}
+			p.Attr.OutAuto = true
 			k++
 			if k == len(tokens) {
 				break
@@ -791,6 +792,7 @@ func NewProgram(source string) (*Program, error) {
 			if tokens[k] != "auto" {
 				return nil, fmt.Errorf("expecting \"auto\" at line %d: %q", i, line)
 			}
+			p.Attr.InAuto = true
 			k++
 			if k == len(tokens) {
 				break

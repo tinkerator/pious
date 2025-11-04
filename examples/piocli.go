@@ -24,6 +24,7 @@ func main() {
 	if *src == "" {
 		log.Fatalf("%s --src=<program.pio>[,...] required argument", os.Args[0])
 	}
+
 	var ps []*pious.Program
 	for _, f := range strings.Split(*src, ",") {
 		text, err := os.ReadFile(f)

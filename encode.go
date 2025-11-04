@@ -93,15 +93,16 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMac
 	}
 	cfg := pio.DefaultStateMachineConfig()
 	cfg.SetWrap(e.offset+`, m.WrapTarget, `, e.offset+`, m.Wrap, `)
-	cfg.SetSetPins(setBase, `, m.Set, `)`), "\n")...)
+	var pin machine.Pin`), "\n")...)
 
 		if m.Set != 0 {
-			lines = append(lines, fmt.Sprint(`	pin := setBase
+			lines = append(lines, fmt.Sprint(`	pin = setBase
 	for i := 0; i < `, m.Set, `; i++ {
 		pin.Configure(machine.PinConfig{Mode: e.block.PinMode()})
 		pin++
 	}
-	sm.SetPindirsConsecutive(setBase, `, m.Set, `, true)`))
+	sm.SetPindirsConsecutive(setBase, `, m.Set, `, true)
+	cfg.SetSetPins(setBase, `, m.Set, `)`))
 		}
 
 		if m.SideSet != 0 {
@@ -111,14 +112,8 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMac
 		pin++
 	}
 	sm.SetPindirsConsecutive(sideSetBase, `, m.SideSet, `, true)
-	cfg.SetSidesetPins(sideSetBase, `, m.SideSet, `)`))
-			if m.SideSetOpt || m.SideSetPindirs {
-				bitCount := m.SideSet
-				if m.SideSetOpt {
-					bitCount++
-				}
-				lines = append(lines, fmt.Sprint(`	cfg.SetSidesetParams(`, bitCount, `, `, m.SideSetOpt, `, `, m.SideSetPindirs, `)`))
-			}
+	cfg.SetSidesetPins(sideSetBase)
+	cfg.SetSidesetParams(`, m.SideSet, `, `, m.SideSetOpt, `, `, m.SideSetPindirs, `)`))
 		}
 
 		if m.Out != 0 {
@@ -127,7 +122,8 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMac
 		pin.Configure(machine.PinConfig{Mode: e.block.PinMode()})
 		pin++
 	}
-	sm.SetOutPins(outBase, `, m.Out, `)
+	sm.SetPindirsConsecutive(outBase, `, m.Out, `, true)
+	cfg.SetOutPins(outBase, `, m.Out, `)
 	cfg.SetOutShift(`, !m.OutLeft, `, `, m.OutAuto, `, `, m.OutThreshold, `)`))
 		}
 
@@ -137,7 +133,8 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMac
 		pin.Configure(machine.PinConfig{Mode: e.block.PinMode()})
 		pin++
 	}
-	sm.SetInPins(inBase, `, m.In, `)
+	sm.SetPindirsConsecutive(inBase, `, m.In, `, false)
+	cfg.SetInPins(inBase, `, m.In, `)
 	cfg.SetInShift(`, !m.InLeft, `, `, m.InAuto, `, `, m.InThreshold, `)`))
 		}
 
