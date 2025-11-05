@@ -37,8 +37,8 @@ type StateMachine struct {
 	Cfg    pio.StateMachineConfig
 }
 
-// Start initializes and starts a StateMachine running a configured
-// PIO sequence.
+// Start initializes a StateMachine with a configured
+// PIO sequence. Use s.Activate(true|false) to enable it.
 func (s *StateMachine) Start() {
 	s.SM.Init(s.Origin, s.Cfg)
 }
@@ -84,8 +84,8 @@ func Assign(block *pio.PIO) (*Engine, error) {
 			args = append(args, "setBase")
 		}
 		lines = append(lines, strings.Split(fmt.Sprint(`// `, fn, ` sets up a `, m.Name, ` module. It operates with
-// an in size of ", m.In, " bits; an out size of ", m.Out, " bits;
-// a side-set size of `, m.SideSet, `; and a pins set size of `, m.Set, ` bits.
+// an in bit-size of `, m.In, `; an out bit-size of `, m.Out, `;
+// a side-set bit-size of `, m.SideSet, `; and a set bit-size of `, m.Set, `.
 func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMachine, error) {
 	sm, err := e.block.ClaimStateMachine()
 	if err != nil {

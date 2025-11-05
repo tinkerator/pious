@@ -32,6 +32,7 @@ An example assembling and then disassembling a `.pio` program:
 ```
 $ go run examples/piocli.go --src pio/clock.pio
 .program clock
+.set 1
 	set	pindirs, 1
 .wrap_target
 	set	pins, 0 [1]
@@ -53,15 +54,16 @@ $ grep func /tmp/clock.go
 func (s *StateMachine) Start() {
 func (s *StateMachine) Activate(run bool) {
 func Assign(block *pio.PIO) (*Engine, error) {
-func (e *Engine) ConfigureClock(pinBase machine.Pin) (*StateMachine, error) {
+func (e *Engine) ConfigureClock(setBase machine.Pin) (*StateMachine, error) {
 ```
 
-The way to initialize this PIO code is to select a GPIO (`pinBase`)
+The way to initialize this PIO code is to select a GPIO (`setBase`)
 and use tinygo code like this:
 ```
 e, _ := clock.Assign(rp2pio.PIO0)
 s, _ := e.ConfigureClock(machine.GPIO6)
 s.Start()
+s.Activate(true)
 ```
 
 You can disable or enable the running PIO clock driving `machine.GPIO6`
