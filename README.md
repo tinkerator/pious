@@ -5,13 +5,19 @@
 The [RP2350B
 processor](https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf)
 contains a PIO engine that can be used to implement realtime
-communication protocol exchanges. This Go based project is one to help
-work with PIO sequences.
+communication protocol exchanges. This Go based
+[project](https://zappem.net/pub/io/pious) is one to help work with
+PIO sequences.
 
 ## Status
 
-The package supports assembling and disassembling known PIO
-instructions. The tests are extracted from known assembly output.
+The [package](https://zappem.net/pub/io/pious) supports assembling and
+disassembling known PIO instructions and [Tinygo](https://tinygo.org/)
+compatible code generation. An example application of the latter is to
+[CRAM load the ice40 FPGA on a pico2-ice
+board](https://zappem.net/pub/io/pico2ice).
+
+Some of the tests are extracted from known assembly output.
 
 To explore:
 
@@ -117,7 +123,7 @@ NOTE: All instructions that assign values have an assignment direction
   push_) whole 32-bit `isr` values into the `rxfifo`.
 
 - `pull` can be used to more explicitly pull (as opposed to _automatic
-  pull_) whole 32-bit `osr` values from the `rxfifo`.
+  pull_) whole 32-bit `osr` values from the `txfifo`.
 
 - `mov` is used to move between registers or a register: `pins`, `x`,
   `y`, `isr`, `osr`, and an indexed element in the `rxfifo`. Some
