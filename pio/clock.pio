@@ -1,4 +1,5 @@
 .program clock
+.set 1
 	set	pindirs, 1
 .wrap_target
 	set	pins, 0 [1]

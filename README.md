@@ -12,10 +12,10 @@ PIO sequences.
 ## Status
 
 The [package](https://zappem.net/pub/io/pious) supports assembling and
-disassembling known PIO instructions and [Tinygo](https://tinygo.org/)
-compatible code generation. An example application of the latter is to
-[CRAM load the ice40 FPGA on a pico2-ice
-board](https://zappem.net/pub/io/pico2ice).
+disassembling known PIO instructions and it supports
+[Tinygo](https://tinygo.org/) compatible code generation.  An example
+application of the latter is to [CRAM load the ice40 FPGA on a
+pico2-ice board](https://zappem.net/pub/io/pico2ice).
 
 Some of the tests are extracted from known assembly output.
 
@@ -65,6 +65,7 @@ func (e *Engine) ConfigureClock(setBase machine.Pin) (*StateMachine, error) {
 
 The way to initialize this PIO code is to select a GPIO (`setBase`)
 and use tinygo code like this:
+
 ```
 e, _ := clock.Assign(rp2pio.PIO0)
 s, _ := e.ConfigureClock(machine.GPIO6)

@@ -368,6 +368,9 @@ func Assemble(code string, p *Program) (uint16, error) {
 				if src == tokens[k] {
 					instr = instr | uint16(j<<5)
 					k++
+					if p != nil && j == 0 /* pins */ && p.Attr.In == 0 {
+						p.Attr.In = 1
+					}
 					break
 				}
 			}
@@ -391,6 +394,9 @@ func Assemble(code string, p *Program) (uint16, error) {
 				if src == tokens[k] {
 					instr = instr | uint16(j<<5)
 					k++
+					if p != nil && j == 0 /* pins */ && p.Attr.Out == 0 {
+						p.Attr.Out = 1
+					}
 					break
 				}
 			}
@@ -502,12 +508,12 @@ func Assemble(code string, p *Program) (uint16, error) {
 				return 0, ErrBad
 			}
 			found := false
-			for i, dest := range disDestinations {
+			for j, dest := range disDestinations {
 				if dest == tokens[k] {
 					instr = instr | uint16(i<<5)
 					k++
 					found = true
-					if p != nil && i == 0 /* pins */ && p.Attr.Set == 0 {
+					if p != nil && j == 0 /* pins */ && p.Attr.Set == 0 {
 						p.Attr.Set = 1
 					}
 					break

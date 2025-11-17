@@ -1,7 +1,9 @@
 // Program from rp2350-datasheet.pdf
 .program spi_tx_fast
+.out 1 right
 .side_set 1
-
+.wrap_target
 loop:
 	out	pins, 1	side 0
 	jmp	loop  	side 1
+.wrap
