@@ -71,10 +71,10 @@ func Assign(block *pio.PIO) (*Engine, error) {
 	for _, m := range mods {
 		fn := camelCase("Configure_" + m.Name)
 		var args []string
-		if m.In != 0 {
+		if m.InPins {
 			args = append(args, "inBase")
 		}
-		if m.Out != 0 {
+		if m.OutPins {
 			args = append(args, "outBase")
 		}
 		if m.SideSet != 0 {
@@ -116,7 +116,7 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMac
 	cfg.SetSidesetParams(`, m.SideSet, `, `, m.SideSetOpt, `, `, m.SideSetPindirs, `)`))
 		}
 
-		if m.Out != 0 {
+		if m.OutPins {
 			lines = append(lines, fmt.Sprint(`	pin = outBase
 	for i := 0; i < `, m.Out, `; i++ {
 		pin.Configure(machine.PinConfig{Mode: e.block.PinMode()})
@@ -127,7 +127,7 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMac
 	cfg.SetOutShift(`, !m.OutLeft, `, `, m.OutAuto, `, `, m.OutThreshold, `)`))
 		}
 
-		if m.In != 0 {
+		if m.InPins {
 			lines = append(lines, fmt.Sprint(`	pin = inBase
 	for i := 0; i < `, m.In, `; i++ {
 		pin.Configure(machine.PinConfig{Mode: e.block.PinMode()})

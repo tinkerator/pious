@@ -375,8 +375,11 @@ func Assemble(code string, p *Program) (uint16, error) {
 				if src == tokens[k] {
 					instr = instr | uint16(j<<5)
 					k++
-					if p != nil && j == 0 /* pins */ && p.Attr.In == 0 {
-						p.Attr.In = 1
+					if p != nil {
+						p.Attr.InPins = p.Attr.InPins || j == 0
+						if p.Attr.In == 0 {
+							p.Attr.In = 1
+						}
 					}
 					break
 				}
@@ -401,8 +404,11 @@ func Assemble(code string, p *Program) (uint16, error) {
 				if src == tokens[k] {
 					instr = instr | uint16(j<<5)
 					k++
-					if p != nil && j == 0 /* pins */ && p.Attr.Out == 0 {
-						p.Attr.Out = 1
+					if p != nil {
+						p.Attr.OutPins = p.Attr.OutPins || j == 0
+						if p.Attr.Out == 0 {
+							p.Attr.Out = 1
+						}
 					}
 					break
 				}
@@ -973,10 +979,12 @@ func Cat(name string, ps ...*Program) (*Program, error) {
 			SideSetPindirs: p.Attr.SideSetPindirs,
 			Set:            p.Attr.Set,
 			Out:            p.Attr.Out,
+			OutPins:        p.Attr.OutPins,
 			OutLeft:        p.Attr.OutLeft,
 			OutAuto:        p.Attr.OutAuto,
 			OutThreshold:   p.Attr.OutThreshold,
 			In:             p.Attr.In,
+			InPins:         p.Attr.InPins,
 			InLeft:         p.Attr.InLeft,
 			InAuto:         p.Attr.InAuto,
 			InThreshold:    p.Attr.InThreshold,

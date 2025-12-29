@@ -166,6 +166,11 @@ type Settings struct {
 	// Out indicates the number of bits to use.
 	Out uint16
 
+	// OutPins indicates the out instruction used with pins.  This
+	// motivates the generated code to request a GPIO base for
+	// output.
+	OutPins bool
+
 	// OutLeft confirms the shift direction out of OSR is left
 	// (MSB first). The default shift direction is right (LSB
 	// first).
@@ -181,6 +186,11 @@ type Settings struct {
 
 	// In indicates the number of bits to use.
 	In uint16
+
+	// InPins indicates the in instruction used with pins.  This
+	// motivates the generated code to request a GPIO base for
+	// input.
+	InPins bool
 
 	// InLeft confirms the shift direction in of ISR is left
 	// (MSB first). The default shift direction is right (LSB
