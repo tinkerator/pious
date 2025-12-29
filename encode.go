@@ -123,8 +123,10 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMac
 		pin++
 	}
 	sm.SetPindirsConsecutive(outBase, `, m.Out, `, true)
-	cfg.SetOutPins(outBase, `, m.Out, `)
-	cfg.SetOutShift(`, !m.OutLeft, `, `, m.OutAuto, `, `, m.OutThreshold, `)`))
+	cfg.SetOutPins(outBase, `, m.Out, `)`))
+		}
+		if m.Out != 0 {
+			lines = append(lines, fmt.Sprint(`	cfg.SetOutShift(`, !m.OutLeft, `, `, m.OutAuto, `, `, m.OutThreshold, `)`))
 		}
 
 		if m.InPins {
@@ -134,8 +136,10 @@ func (e *Engine) `, fn, `(`, strings.Join(args, ", "), ` machine.Pin) (*StateMac
 		pin++
 	}
 	sm.SetPindirsConsecutive(inBase, `, m.In, `, false)
-	cfg.SetInPins(inBase, `, m.In, `)
-	cfg.SetInShift(`, !m.InLeft, `, `, m.InAuto, `, `, m.InThreshold, `)`))
+	cfg.SetInPins(inBase, `, m.In, `)`))
+		}
+		if m.In != 0 {
+			lines = append(lines, fmt.Sprint(`	cfg.SetInShift(`, !m.InLeft, `, `, m.InAuto, `, `, m.InThreshold, `)`))
 		}
 
 		lines = append(lines, strings.Split(fmt.Sprint(`	return &StateMachine{
