@@ -25,6 +25,7 @@ func TestDisassemble(t *testing.T) {
 		{c: 0x0045, d: "jmp\tx-- 5"},
 		{c: 0x8018, d: "mov\trxfifo[0], isr"},
 		{c: 0x8098, d: "mov\tosr, rxfifo[0]"},
+		{c: 0x0023, d: "jmp\t!x 3"},
 	}
 	for i, v := range vs {
 		if d, err := Disassemble(v.c, nil); err != nil {
