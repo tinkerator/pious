@@ -6,6 +6,7 @@
 package pious
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -210,6 +211,9 @@ func Disassemble(instr uint16, p *Program) (string, error) {
 	return strings.Join(decoded, ""), nil
 }
 
+// ErrRedo supports lazy symbol definitions (forward jumps).
+var ErrRedo = errors.New("redo later")
+
 // parseConst returns a positive integer less than or equal to 32,
 // either indirectly via the consts lookup, or because the supplied
 // token is an integer.
@@ -220,6 +224,9 @@ func parseConst(token string, consts map[string]uint16) (uint16, error) {
 		}
 	}
 	n, err := strconv.Atoi(token)
+	if err != nil {
+		return 0, ErrRedo
+	}
 	if n > 32 || n < 0 {
 		return 0, ErrBad
 	}
@@ -653,9 +660,11 @@ func NewProgram(source string) (*Program, error) {
 	p := &Program{
 		Labels: make(map[string]uint16),
 	}
+	redos := make(map[int]int)
 	for i, line := range lines {
 		instr, err := Assemble(line, p)
-		if err == nil {
+		if err == nil || err == ErrRedo {
+			redos[i] = len(code)
 			code = append(code, instr)
 			continue
 		}
@@ -831,6 +840,13 @@ func NewProgram(source string) (*Program, error) {
 			}
 			p.Labels[label] = uint16(len(code))
 		}
+	}
+	for i, offset := range redos {
+		instr, err := Assemble(lines[i], p)
+		if err != nil {
+			return nil, fmt.Errorf("unable to resolve: %q: %v", lines[i], err)
+		}
+		code[offset] = instr
 	}
 	if program == "" {
 		program = "unknown"
